@@ -1,0 +1,12 @@
+export class RxHelperService {
+  constructor() {}
+
+  queryParamsSubscription(
+    qp: Observable<Params>,
+    inSync: Observable<boolean> | BehaviorSubject<boolean>
+  ): Observable<Params> {
+    return combineLatest(qp, inSync).pipe(
+      mergeMap(val => of(val[0]))
+    );
+  }
+}

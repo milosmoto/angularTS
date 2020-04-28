@@ -1,0 +1,35 @@
+// Home screen page
+ngOnInit() {
+    this.queryParamsSubscription = this.rxHelper
+      .queryParamsSubscription(this.route.queryParams, this.syncService.inSync)
+      .subscribe(queryParams => {
+        const { appMode } = queryParams;
+        if (appMode) {
+          // custom wrapper for NavController - @ionic/angular
+          this.navStore.navigateRoot([]);
+        }
+      });
+    // shouldForceUpdateComponent = new Subject<boolean>();
+    this.shouldForceUpdateComponent$ = this.syncService.shouldForceUpdateComponent.subscribe(value => {
+      if (value) {
+        this.getCounter();
+        this.getMenuItems();
+        this.updateShowWarningButton();
+        this.updateShowHerdNumber();
+      }
+    });
+}
+
+ngOnDestroy() {
+    if (this.queryParamsSubscription) {
+      this.queryParamsSubscription.unsubscribe();
+    }
+    if (this.backBtnSubscribe) {
+      this.backBtnSubscribe.unsubscribe();
+    }
+    if (this.shouldForceUpdateComponent$) {
+      this.shouldForceUpdateComponent$.unsubscribe();
+    }
+}
+
+// unsubscribe from subscriptions to prevent extra calls (fetch, etc..) that can realy cause unexpected memory leaks or broken flows

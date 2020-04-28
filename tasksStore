@@ -1,0 +1,72 @@
+private lazyLoad = {
+  get: (target: TaskModel, name: string) => {
+    if (name === 'relatedAnimals') {
+      const animalIds = target.taskAnimals.map(item => item.animalId);
+      return this.animalsRepository.find({ id: { $in: animalIds } });
+    }
+    return target[name];
+  }
+};
+...
+getTasksList(
+  condition: any = {},
+  order = null,
+  limit?: number,
+  offset?: number,
+  eqJoin?: EqJoinOptions | EqJoinOptions[] | null
+) {
+  this.listFilters = this.getListFilters();
+  if (!order) {
+    order = this.order;
+  }
+  if (!eqJoin) {
+    eqJoin = this.getEqJoin();
+  }
+  if (Object.keys(this.types).length === 0) {
+    this.getTasksTypes();
+  }
+  if (this.listFilters.where && condition.where) {
+    if (Array.isArray(condition.where) && Array.isArray(this.listFilters.where)) {
+      condition.where = [...this.listFilters.where, ...condition.where];
+    } else if (Array.isArray(condition.where)) {
+      condition.where.push(this.listFilters.where);
+    } else {
+      condition.where = [this.listFilters.where, condition.where];
+    }
+  }
+  const mergedFilters = { ...this.listFilters, ...condition };
+  const customFilters = mergedFilters.customFilters || {};
+  if (mergedFilters.customFilters) {
+    delete mergedFilters.customFilters;
+  }
+
+  const tasks = this.taskRepository
+    .find(mergedFilters, order, limit, offset, eqJoin)
+    .map(t => new Proxy(t, this.lazyLoad));
+  if (Object.keys(customFilters).length > 0) {
+    return tasks.filter(task => {
+      if (
+        customFilters.animalTypeIds &&
+        task.animalTypeIds &&
+        !task.animalTypeIds.includes(customFilters.animalTypeIds)
+      ) {
+        return false;
+      }
+      if (customFilters.searchString) {
+        const currentTitle = (this.getTaskTitle(task) || '').toLowerCase();
+        const searchStr = customFilters.searchString.trim().toLowerCase();
+        if (
+          !currentTitle.includes(searchStr) &&
+          (!task.description || !task.description.toLowerCase().includes(searchStr)) &&
+          (!task.remedyData ||
+            Object.keys(task.remedyData).length === 0 ||
+            !task.remedyData.displayName.toLowerCase().includes(searchStr))
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }
+  return tasks;
+}
